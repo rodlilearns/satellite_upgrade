@@ -1,0 +1,92 @@
+# https://access.redhat.com/labs/satelliteupgradehelper/
+---
+- name: Upgrade Satellite 6.8 to 6.9
+  hosts: satellite_server
+  vars:
+    backup_directory: /bkp
+    target_version: 6.9
+    organization name: #org_name todo
+  tasks:
+
+    - name: Stop Satellite service
+      ansible.builtin.command: satellite-maintain service stop
+      become: yes
+
+    - name: Backup Satellite
+      ansible.builtin.command: satellite-maintain backup online "{{ backup_directory }}"
+      become: yes
+
+    - name: Reminder to reboot these hosts when the upgrade is enabled
+      ansible.builtin.debug:
+        msg: Reminder to reboot these hosts when the upgrade is enabled
+
+    - name: Enable repository
+      community.general.rhsm_repository:
+        name: rhel-7-server-satellite-maintenance-6-rpms
+        state: enabled
+      become: yes
+
+    - name: Install rubygen-forman_maintain package
+      ansible.builtin.dnf:
+        name:
+          - satellite-maintain
+          - rubygen-foreman_maintain
+        state: present
+      become: yes
+
+    - name: Is the version you want listed?
+      ansible.builtin.command: satellite-maintain upgrade list-versions
+      become: yes
+      register: result_versions
+      # implement more checks for if version you want isn't listed?
+
+    - name: Display versions
+      ansible.builtin.debug:
+        var: result_versions
+
+    - name: Determine if system is ready for upgrade
+      ansible.builtin.command: satellite-maintain upgrade check --target-version "{{ target_version }}"
+      become: yes
+
+    - name: Perform the upgrade
+      ansible.builtin.command: satellite-maintain upgrade run --target-version "{{ target_version }}"
+      become: yes
+
+    - name: Check when the kernel packages were last updated
+      ansible.builtin.shell: rpm -qa --last | grep kernel
+      register: result_kernel_last_update
+      become: yes
+
+    - name: Display kernel last update
+      ansible.builtin.debug:
+        var: result_kernel_last_update
+      # If a kernel update occurred since the last reboot, stop the satellite-maintain services and reboot the system
+
+    - name: If using a BASH shell, after a successful or failed upgrade, enter...
+      ansible.builtin.shell: hash -d satellite-maintain service 2> /dev/null
+      become: yes
+
+    - name: Restart satellite-maintain services
+      ansible.builtin.command: satellite-maintain service restart
+      become: yes
+
+    - name: If you have the OpenSCAP plug-in installed, but do not have the default OpenSCAP content available, enter the following command...
+      ansible.builtin.shell: foreman-rake foreman_openscap:bulk_upload:default
+      become: yes
+
+# Synchronising the new repositories
+
+    - name: Refresh manifest
+      ansible.builtin.command: "hammer subscription refresh-manifest --organization "{{ organization name }}""
+      become: yes
+
+    - name: Enable repos
+      ansible.builtin.command: "hammer repository-set enable --name "Red Hat Satellite Tools 6.9 (for RHEL 7 Server) (RPMs)" --product "Red Hat Enterprise Linux Server" --basearch "x86_64" --organization "{{ organization name }}""
+      become: yes
+
+    - name: Sync repos
+      ansible.builtin.command: "hammer repository synchronize --name "Red Hat Satellite Tools 6.9 for RHEL 7 Server RPMs x86_64"  --product "Red Hat Enterprise Linux Server" --organization "{{ organization name }}""
+
+
+    
+
