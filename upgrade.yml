@@ -1,7 +1,7 @@
 # https://access.redhat.com/labs/satelliteupgradehelper/
 ---
 - name: Upgrade Satellite 6.8 to 6.9
-  hosts: satellite_server
+  hosts: satellite
 
   vars:
     backup_directory: /bkp
@@ -18,7 +18,7 @@
         - name: Backup Satellite
           ansible.builtin.command: satellite-maintain backup online "{{ backup_directory }}"
           become: yes
-      tags: backup
+      tags: [ never, backup ]
 
     - name: Configure repos and packages
       block:
@@ -35,7 +35,7 @@
               - rubygen-foreman_maintain
             state: present
           become: yes
-      tags: repos_and_packages
+      tags: [ never, repos_and_packages ]
     
     - name: Upgrade Satellite
       block:
@@ -60,7 +60,7 @@
         - name: Perform the upgrade
           ansible.builtin.command: satellite-maintain upgrade run --target-version "{{ target_version }}"
           become: yes
-      tags: upgrade
+      tags: [ never, upgrade ]
 
     - name: Reboot if needed
       block:
@@ -88,7 +88,7 @@
           ansible.builtin.command: systemctl reboot
           when: result_kernel_last_update < last_reboot
           become: yes
-      tags: reboot_if_needed
+      tags: [ never, reboot_if_needed ]
 
     - name: Post upgrade restart service
       block:
@@ -103,7 +103,7 @@
         - name: If you have the OpenSCAP plug-in installed, but do not have the default OpenSCAP content available, enter the following command...
           ansible.builtin.shell: foreman-rake foreman_openscap:bulk_upload:default
           become: yes
-      tags: restart_service
+      tags: [ never, restart_service]
 
     - name: Synchronize the new repositories
       block:
@@ -117,7 +117,8 @@
 
         - name: Sync repos
           ansible.builtin.command: "hammer repository synchronize --name 'Red Hat Satellite Tools 6.9 for RHEL 7 Server RPMs x86_64'  --product 'Red Hat Enterprise Linux Server' --organization {{ organization_name }}"
-      tags: sync
+          become: yes
+      tags: [ never, sync]
 
     - name: Further instructions
       ansible.builtin.debug:
