@@ -2,10 +2,12 @@
 ---
 - name: Upgrade Satellite 6.8 to 6.9
   hosts: satellite_server
+
   vars:
     backup_directory: /bkp
     target_version: 6.9
-    organization name: #org_name todo
+    organization_name: DFAT
+
   tasks:
 
     - name: Stop Satellite service
@@ -15,10 +17,6 @@
     - name: Backup Satellite
       ansible.builtin.command: satellite-maintain backup online "{{ backup_directory }}"
       become: yes
-
-    - name: Reminder to reboot these hosts when the upgrade is enabled
-      ansible.builtin.debug:
-        msg: Reminder to reboot these hosts when the upgrade is enabled
 
     - name: Enable repository
       community.general.rhsm_repository:
@@ -77,15 +75,15 @@
 # Synchronising the new repositories
 
     - name: Refresh manifest
-      ansible.builtin.command: "hammer subscription refresh-manifest --organization "{{ organization name }}""
+      ansible.builtin.command: "hammer subscription refresh-manifest --organization {{ organization_name }}"
       become: yes
 
     - name: Enable repos
-      ansible.builtin.command: "hammer repository-set enable --name "Red Hat Satellite Tools 6.9 (for RHEL 7 Server) (RPMs)" --product "Red Hat Enterprise Linux Server" --basearch "x86_64" --organization "{{ organization name }}""
+      ansible.builtin.command: "hammer repository-set enable --name 'Red Hat Satellite Tools 6.9 (for RHEL 7 Server) (RPMs)' --product 'Red Hat Enterprise Linux Server' --basearch 'x86_64' --organization {{ organization_name }}"
       become: yes
 
     - name: Sync repos
-      ansible.builtin.command: "hammer repository synchronize --name "Red Hat Satellite Tools 6.9 for RHEL 7 Server RPMs x86_64"  --product "Red Hat Enterprise Linux Server" --organization "{{ organization name }}""
+      ansible.builtin.command: "hammer repository synchronize --name 'Red Hat Satellite Tools 6.9 for RHEL 7 Server RPMs x86_64'  --product 'Red Hat Enterprise Linux Server' --organization {{ organization_name }}"
 
 
     
