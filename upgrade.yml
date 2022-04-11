@@ -7,7 +7,6 @@
     backup_directory: /bkp
     target_version: 6.9
     organization_name: DFAT
-    version_you_want: 
 
   tasks:
     - name: Backup Satellite
@@ -52,7 +51,7 @@
         - name: Fail if version you want is not listed
           fail:
             msg: Target version is not in versions listed.
-          when: {{ target_version }} not in result_versions
+          when: target_version not in result_versions
 
         - name: Determine if system is ready for upgrade
           ansible.builtin.command: satellite-maintain upgrade check --target-version "{{ target_version }}"
@@ -63,15 +62,33 @@
           become: yes
       tags: upgrade
 
-    # - name: Check when the kernel packages were last updated
-    #   ansible.builtin.shell: rpm -qa --last | grep kernel
-    #   register: result_kernel_last_update
-    #   become: yes
+    - name: Reboot if needed
+      block:
+        - name: Check when the kernel packages were last updated
+          ansible.builtin.shell: rpm -qa kernel --qf '%{installtime}\n' kernel | head -1
+          register: result_kernel_last_update
+          become: yes
 
-    # - name: Display kernel last update
-    #   ansible.builtin.debug:
-    #     var: result_kernel_last_update
-      # If a kernel update occurred since the last reboot, stop the satellite-maintain services and reboot the system
+        - name: Display kernel last update
+          ansible.builtin.debug:
+            var: result_kernel_last_update
+          # If a kernel update occurred since the last reboot, stop the satellite-maintain services and reboot the system
+
+        - name: Find last reboot time
+          ansible.builtin.shell: cat /proc/stat | grep btime | awk '{ print $2 }'
+          register: result_last_reboot_time
+          become: yes
+
+        - name: Reboot if a kernel update occurred since the last reboot
+          ansible.builtin.command: satellite-maintain service stop
+          when: result_kernel_last_update < result_last_reboot_time
+          become: yes
+
+        - name: Reboot system if kernel update occurred since the last reboot
+          ansible.builtin.command: systemctl reboot
+          when: result_kernel_last_update < last_reboot
+          become: yes
+      tags: reboot_if_needed
 
     - name: Post upgrade restart service
       block:
@@ -86,7 +103,7 @@
         - name: If you have the OpenSCAP plug-in installed, but do not have the default OpenSCAP content available, enter the following command...
           ansible.builtin.shell: foreman-rake foreman_openscap:bulk_upload:default
           become: yes
-      tags: restart
+      tags: restart_service
 
     - name: Synchronize the new repositories
       block:
@@ -102,9 +119,11 @@
           ansible.builtin.command: "hammer repository synchronize --name 'Red Hat Satellite Tools 6.9 for RHEL 7 Server RPMs x86_64'  --product 'Red Hat Enterprise Linux Server' --organization {{ organization_name }}"
       tags: sync
 
-        - name: Disable repository set
-          ansible.builtin.command: hammer respository-set disable --name "Red Hat Satellite Tools 6.8"
-          # how to select override to enabled?
+    - name: Further instructions
+      ansible.builtin.debug:
+        msg: Continue from section 3 in the Satellite Upgrade Steps. See the link at the very top of this code to get the Satellite Upgrade Steps.
+
+        
 
 
     
