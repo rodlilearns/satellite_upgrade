@@ -21,4 +21,4 @@ Steps:
 4. ansible-playbook upgrade.yml -K <become_root_pass> --tags reboot_if_needed
 5. ansible-playbook upgrade.yml -K <become_root_pass> --tags restart_service
 6. ansible-playbook upgrade.yml -K <become_root_pass> --tags sync
-7. Manually configure the rest in the RH Satellite web UI.
+7. Manually configure the rest (section 3 onwards) in the RH Satellite web UI.
