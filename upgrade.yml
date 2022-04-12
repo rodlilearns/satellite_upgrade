@@ -6,7 +6,7 @@
   vars:
     backup_directory: /bkp
     target_version: 6.9
-    organization_name: DFAT
+    organization_name: <org_name>
 
   tasks:
     - name: Backup Satellite
